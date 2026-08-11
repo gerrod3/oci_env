@@ -14,6 +14,7 @@ from oci_env.commands import (
     phelper
 )
 
+from oci_env.agent import agent_dispatch
 from oci_env.utils import (
     Compose
 )
@@ -55,6 +56,7 @@ def get_parser():
     parse_profile_command(subparsers)
     parse_poll_command(subparsers)
     parse_phelper_commands(subparsers)
+    parse_agent_command(subparsers)
 
     return parser
 
@@ -162,6 +164,118 @@ def parse_phelper_commands(subparsers):
     parser = subparsers.add_parser('pdbreset', help='Reset the Pulp database.')
     parser.set_defaults(func=phelper, action="dbreset")
 
+
+def parse_agent_command(subparsers):
+    parser = subparsers.add_parser(
+        "agent",
+        help="Create and manage lean isolated environments for parallel agent work.",
+    )
+    agent_sub = parser.add_subparsers(dest="agent_action", required=True)
+
+    create = agent_sub.add_parser("create", help="Allocate a lean agent environment.")
+    create.add_argument("agent_id", help="Unique agent id (used in project name and env file).")
+    create.add_argument(
+        "--plugins",
+        default="pulpcore",
+        help=(
+            "Colon-separated PLUGIN[=PATH] entries for DEV_SOURCE_PATH (default: pulpcore). "
+            "PATH may be a Cursor worktree or any plugin checkout; omit PATH to use "
+            "<host-src-dir>/<plugin>."
+        ),
+    )
+    create.add_argument(
+        "--host-src-dir",
+        default=None,
+        help=(
+            "Host directory used to resolve plugins listed without an explicit path "
+            "(default: SRC_DIR from compose.env or parent of oci_env)."
+        ),
+    )
+    create.add_argument("--port", type=int, default=None, help="API port (default: allocate from 5100-5199).")
+    create.add_argument(
+        "--env",
+        action="append",
+        default=[],
+        dest="env_vars",
+        metavar="KEY=VALUE",
+        help=(
+            "Set a variable in the agent env file (repeatable). "
+            "Examples: --env COMPOSE_PROFILE=lean:local_fixtures --env LEAN_MEM_LIMIT=1g."
+        ),
+    )
+    create.set_defaults(func=agent_dispatch, agent_action="create")
+
+    up = agent_sub.add_parser("up", help="Start an agent environment and wait for the API.")
+    up.add_argument("agent_id", help="Agent id to start.")
+    up.add_argument("--build", action="store_true", help="Build images before starting.")
+    up.add_argument("--attempts", type=int, default=30, help="Poll attempts for API readiness.")
+    up.add_argument("--wait", type=int, default=10, help="Seconds between poll attempts.")
+    up.set_defaults(func=agent_dispatch, agent_action="up")
+
+    down = agent_sub.add_parser("down", help="Stop an agent environment (keeps volumes).")
+    down.add_argument("agent_id", help="Agent id to stop.")
+    down.set_defaults(func=agent_dispatch, agent_action="down")
+
+    destroy = agent_sub.add_parser("destroy", help="Stop an agent environment and remove volumes/env.")
+    destroy.add_argument("agent_id", help="Agent id to destroy.")
+    destroy.set_defaults(func=agent_dispatch, agent_action="destroy")
+
+    ls = agent_sub.add_parser("ls", help="List agent environments.")
+    ls.set_defaults(func=agent_dispatch, agent_action="ls")
+
+    test_cmd = agent_sub.add_parser("test", help="Run tests against an agent environment's live API.")
+    test_cmd.add_argument("agent_id", help="Agent id to test.")
+    test_cmd.add_argument(
+        "test",
+        nargs="?",
+        default="functional",
+        choices=["functional", "unit", "lint", "performance"],
+        help="Test suite (default: functional).",
+    )
+    test_cmd.add_argument(
+        "-i",
+        action="store_true",
+        dest="install_deps",
+        help="Deprecated no-op. Test dependencies are always installed.",
+    )
+    test_cmd.add_argument(
+        "-p",
+        type=str,
+        default="",
+        dest="plugin",
+        help="Plugin to test (defaults to the sole DEV_SOURCE_PATH plugin).",
+    )
+    test_cmd.add_argument("args", nargs=argparse.REMAINDER, help="Arguments to pass to pytest.")
+    test_cmd.add_argument("--privileged", action="store_true", dest="privileged")
+    test_cmd.set_defaults(func=agent_dispatch, agent_action="test")
+
+    gen = agent_sub.add_parser(
+        "generate-client",
+        help="Generate (and optionally install) API clients for an agent environment.",
+    )
+    gen.add_argument("agent_id", help="Agent id.")
+    gen.add_argument(
+        "plugin",
+        nargs="?",
+        default=None,
+        help="Plugin to generate a client for (default: all in DEV_SOURCE_PATH).",
+    )
+    gen.add_argument(
+        "-l",
+        "--language",
+        default="python",
+        choices=["python", "ruby"],
+        help="Client language.",
+    )
+    gen.add_argument(
+        "-i",
+        action="store_true",
+        dest="install_client",
+        help="Deprecated no-op. Clients are always installed into the agent container.",
+    )
+    gen.set_defaults(func=agent_dispatch, agent_action="generate-client")
+
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -170,9 +284,22 @@ def main():
         parser.print_help()
         exit()
 
+    # Agent create/ls manage env files themselves and must not require compose.env.
+    if getattr(args, "func", None) is agent_dispatch:
+        try:
+            args.func(args)
+        except KeyboardInterrupt:
+            print()
+            exit(1)
+        return
+
     client = Compose(args.is_verbose, args.env_file)
     try:
         args.func(args, client)
     except KeyboardInterrupt:
         print()
         exit(1)
+
+
+if __name__ == "__main__":
+    main()

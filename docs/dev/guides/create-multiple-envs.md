@@ -2,6 +2,10 @@
 
 You can running multiple environments simultaneously.
 
+For parallel coding agents that need lean, short-lived stacks with automatic port allocation and
+git worktrees, prefer [`oci-env agent`](agent-envs.md) with the `lean` profile instead of
+hand-writing env files.
+
 ## Create an `.env` file
 
 You may place it in the root of `oci_env` dir:

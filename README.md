@@ -6,6 +6,23 @@ A developer environment for pulp based off of the [Pulp OCI Images](https://gith
 
 A detailed guide on setting up the development environment is available [here](docs/dev/tutorials/quickstart.md).
 
+## Lean multi-agent environments
+
+For parallel agents that each need an isolated live Pulp API (own DB, volumes, and source
+worktrees) with lower resource use, see the [agent environments guide](docs/dev/guides/agent-envs.md)
+and the `lean` profile (`oci-env profile docs lean`).
+
+```bash
+oci-env agent create pr-123 --plugins pulpcore
+oci-env agent up pr-123
+oci-env agent test pr-123 -p pulpcore -- -k test_crud_repos
+oci-env agent destroy pr-123
+
+# Or reuse a Cursor / other AI tool worktree for plugins under test:
+oci-env agent create pr-123 \
+  --plugins pulpcore=~/.cursor/worktrees/pulpcore/my-wt
+```
+
 ## Multiple environments
 
 oci-env supports running multiple environments simultaneously. To do this, simply create a new .env file such as:
