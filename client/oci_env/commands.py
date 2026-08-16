@@ -115,7 +115,7 @@ def generate_client(args, client):
     env = {**os.environ, **client.config, "PULP_API_ROOT": api_root}
 
     for plugin in plugins:
-        cmd = base_cmd + [plugin.replace("-", "_"), args.language, container_name]
+        cmd = base_cmd + [plugin.replace("-", "_"), args.language, container_name, args.api_version]
         if args.is_verbose:
             print(f"Running local command: {' '.join(cmd)}")
 
