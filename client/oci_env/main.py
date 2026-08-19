@@ -113,6 +113,7 @@ def parse_generate_client_command(subparsers):
     parser.add_argument('plugin', nargs="?", default=None, help="Plugin to generate a client for. If no plugin is specified clients will be generated for all plugins in DEV_SOURCE_PATH.")
     parser.add_argument('-l', '--language', default="python", choices=['python', 'ruby'], help="Language to generate a client for. If no language is specified clients will be generated for python.")
     parser.add_argument('-i', action='store_true', dest='install_client', help="Deprecated no-op. Python clients are always installed after generating.")
+    parser.add_argument('-v', '--api-version', default="v3", choices=['v3', 'v4'], dest='api_version', help="API-version to generate the clients for.")
 
     parser.set_defaults(func=generate_client)
 
