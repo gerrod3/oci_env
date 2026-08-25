@@ -1,0 +1,4 @@
+services:
+  pulp:
+    mem_limit: "{LEAN_MEM_LIMIT}"
+    cpus: {LEAN_CPUS}

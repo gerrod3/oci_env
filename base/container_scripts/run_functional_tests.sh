@@ -42,4 +42,14 @@ EOF
 check_pytest
 check_client
 
-sudo -u pulp -E pytest -r sx --rootdir=/var/lib/pulp --color=yes --pyargs "${PROJECT}.tests.functional" "${@:2}"
+API_URL="${API_PROTOCOL:-http}://${API_HOST:-localhost}:${API_PORT:-5001}"
+echo "Running functional tests for ${PROJECT} against live API ${API_URL}"
+echo "Auth: ${DJANGO_SUPERUSER_USERNAME:-admin} (password from DJANGO_SUPERUSER_PASSWORD)"
+
+sudo -u pulp -E \
+    API_PROTOCOL="${API_PROTOCOL:-http}" \
+    API_HOST="${API_HOST:-localhost}" \
+    API_PORT="${API_PORT:-5001}" \
+    DJANGO_SUPERUSER_USERNAME="${DJANGO_SUPERUSER_USERNAME:-admin}" \
+    DJANGO_SUPERUSER_PASSWORD="${DJANGO_SUPERUSER_PASSWORD:-password}" \
+    pytest -r sx --rootdir=/var/lib/pulp --color=yes --pyargs "${PROJECT}.tests.functional" "${@:2}"
